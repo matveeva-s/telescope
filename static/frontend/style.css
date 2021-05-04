@@ -1,0 +1,15 @@
+.login_page {
+    display: flex;
+    flex-direction: row;
+}
+
+.login_page--background_img {
+    width: 2000px;
+    height: 600px;
+    background: url("https://i.ibb.co/DQq72qc/Man-exploring-space-Vector-illustration-flat-design-Use-in-Web-Project-and-Applications-Landing-page.jpg") no-repeat;
+    background-size: contain;
+}
+
+.login_page--main-data{
+    margin-left: 500px;
+}
