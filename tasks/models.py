@@ -56,8 +56,8 @@ class Task(models.Model):
     telescope = models.ForeignKey(Telescope, verbose_name='Телескоп', related_name='tasks', on_delete=models.CASCADE)
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
     task_type = models.SmallIntegerField('Тип задания', choices=TYPE_CHOICES)
-    start_dt = models.DateTimeField('Дата и время начала наблюдения')
-    end_dt = models.DateTimeField('Дата и время конца наблюдения')
+    start_dt = models.DateTimeField('Дата и время начала наблюдения', null=True, blank=True)
+    end_dt = models.DateTimeField('Дата и время конца наблюдения', null=True, blank=True)
 
     class Meta:
         verbose_name = 'Задание'
@@ -68,7 +68,7 @@ class Task(models.Model):
 
 
 class Frame(models.Model):
-    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='frames', on_delete=models.CASCADE)
+    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='frames', null=True, blank=True, on_delete=models.CASCADE)
     exposure = models.IntegerField('Требуемая выдержка снимка')
     dt = models.DateTimeField('Время снимка')
 
@@ -78,7 +78,7 @@ class Frame(models.Model):
 
 
 class TrackPoint(models.Model):
-    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='track_points', on_delete=models.CASCADE)
+    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='track_points', null=True, blank=True, on_delete=models.CASCADE)
     alpha = models.FloatField('Азимут')
     beta = models.FloatField('Высота')
     dt = models.DateTimeField('Время снимка')
@@ -89,7 +89,7 @@ class TrackPoint(models.Model):
 
 
 class TrackingData(models.Model):
-    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='tracking_data', on_delete=models.CASCADE)
+    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='tracking_data', null=True, blank=True, on_delete=models.CASCADE)
     satellite_id = models.IntegerField('Номер спутника')
     mag = models.FloatField('Звездная велечина')
     step_sec = models.IntegerField('Временной шаг', default=1)
@@ -101,7 +101,7 @@ class TrackingData(models.Model):
 
 
 class TLEData(models.Model):
-    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='TLE_data', on_delete=models.CASCADE)
+    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='TLE_data', null=True, blank=True, on_delete=models.CASCADE)
     satellite_name = models.CharField('Название спутника', max_length=255)
     line1 = models.CharField('Первая строка TLE спутника', max_length=255)
     line2 = models.CharField('Вторая строка TLE спутника', max_length=255)
@@ -118,7 +118,7 @@ class Point(models.Model):
         (EARTH_SYSTEM, 'Земная система координат'),
         (STARS_SYSTEM, 'Звездная система координат'),
     )
-    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='points', on_delete=models.CASCADE)
+    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='points', null=True, blank=True, on_delete=models.CASCADE)
     satellite_id = models.IntegerField('Номер спутника')
     mag = models.FloatField('Звездная велечина')
     dt = models.DateTimeField('Время снимка')
