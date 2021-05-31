@@ -6,7 +6,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
 from tasks.models import Telescope, Task, Point
-from tasks.serializers import TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer, TrackingTaskSerializer
+from tasks.serializers import (
+    TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer, TrackingTaskSerializer, TleTaskSerializer
+)
 
 
 class TelescopeView(generics.ListAPIView):
@@ -29,7 +31,7 @@ class PointTaskView(generics.CreateAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         point_task = serializer.save()
-        return Response(data={'msg': f'Задание №{point_task.id} успешно создано', 'status': 201}, status=201)
+        return Response(data={'msg': f'Задание №{point_task.id} успешно создано', 'status': 'ok'})
 
 
 class TrackingTaskView(generics.CreateAPIView):
@@ -42,4 +44,17 @@ class TrackingTaskView(generics.CreateAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         tracking_task = serializer.save()
-        return Response(data={'msg': f'Задание №{tracking_task.id} успешно создано', 'status': 201}, status=201)
+        return Response(data={'msg': f'Задание №{tracking_task.id} успешно создано', 'status': 'ok'})
+
+
+class TleTaskView(generics.CreateAPIView):
+    queryset = Task.objects.filter(task_type=Task.TLE_MODE)
+    serializer_class = TleTaskSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=self.request.data, context=self.get_serializer_context())
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        tracking_task = serializer.save()
+        return Response(data={'msg': f'Задание №{tracking_task.id} успешно создано', 'status': 'ok'})

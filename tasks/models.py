@@ -15,7 +15,7 @@ class Telescope(models.Model):
     location = models.CharField('Местоположение', max_length=300, blank=True, null=True)
     latitude = models.FloatField('Широта в градусах', blank=True, null=True)
     longitude = models.FloatField('Долгота в градусах', blank=True, null=True)
-    avatar = models.ImageField('Аватар', null=True, blank=True, upload_to='images/telescopes')
+    avatar = models.ImageField('Аватар', null=True, blank=True, upload_to='telescopes')
 
     class Meta:
         verbose_name = 'Телескоп'
@@ -102,7 +102,7 @@ class TrackingData(models.Model):
 
 class TLEData(models.Model):
     task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='TLE_data', null=True, blank=True, on_delete=models.CASCADE)
-    satellite_name = models.CharField('Название спутника', max_length=255)
+    satellite_id = models.IntegerField('Номер спутника')
     line1 = models.CharField('Первая строка TLE спутника', max_length=255)
     line2 = models.CharField('Вторая строка TLE спутника', max_length=255)
 

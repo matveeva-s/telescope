@@ -26,7 +26,7 @@ class Profile(models.Model):
                                 related_name='workers', null=True)
     position = models.CharField('Должность', max_length=70, blank=True)
     hours = models.IntegerField('Оставшиеся часы', default=0, blank=True, null=True)
-    avatar = models.ImageField('Аватар', null=True, blank=True, upload_to='images/avatars')
+    avatar = models.ImageField('Аватар', null=True, blank=True, upload_to='avatars')
 
     class Meta:
         verbose_name = 'Профиль пользователя'

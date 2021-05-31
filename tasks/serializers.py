@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from tasks.models import Telescope, Balance, Point, Task, TrackPoint, Frame, TrackingData
+from tasks.models import Telescope, Balance, Point, Task, TrackPoint, Frame, TrackingData, TLEData
 from tasks.helpers import converting_degrees
 
 
@@ -55,6 +55,13 @@ class TrackingDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrackingData
         fields = ('satellite_id', 'mag', 'step_sec', 'count')
+
+
+class TleDataSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TLEData
+        fields = ('satellite_id', 'line1', 'line2')
 
 
 class TrackPointSerializer(serializers.ModelSerializer):
@@ -148,5 +155,42 @@ class TrackingTaskSerializer(serializers.ModelSerializer):
         instance = Task.objects.create(author=user, task_type=Task.TRACKING_MODE, telescope_id=telescope_id)
         self.save_tracking_data(instance, tracking_data)
         self.save_track(instance, track)
+        self.save_frames(instance, frames)
+        return instance
+
+
+class TleTaskSerializer(serializers.ModelSerializer):
+    telescope = serializers.CharField(source='telescope.id')
+    tle_data = TleDataSerializer()
+    frames = FrameSerializer(many=True)
+
+    class Meta:
+        model = Task
+        fields = ('telescope', 'tle_data', 'frames')
+
+    def save_tle_data(self, instance, tle_data):
+        nested_serializer = TleDataSerializer(data=tle_data)
+        nested_serializer.is_valid(raise_exception=True)
+        tle_data_obj = nested_serializer.save()
+        tle_data_obj.task_id = instance.id
+        tle_data_obj.save()
+        return tle_data_obj
+
+    def save_frames(self, instance, frames_data):
+        nested_serializer = FrameSerializer(data=frames_data, many=True)
+        nested_serializer.is_valid(raise_exception=True)
+        frames_list = nested_serializer.save()
+        for frame in frames_list:
+            frame.task_id = instance.id
+            frame.save()
+        return frames_list
+
+    def create(self, validated_data):
+        telescope_id = validated_data.pop('telescope').get('id')
+        tle_data = self.context['request'].data.get('tle_data')
+        frames = self.context['request'].data.get('frames')
+        user = self.context['request'].user
+        instance = Task.objects.create(author=user, task_type=Task.TLE_MODE, telescope_id=telescope_id)
+        self.save_tle_data(instance, tle_data)
         self.save_frames(instance, frames)
         return instance
