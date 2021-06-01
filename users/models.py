@@ -2,17 +2,6 @@ from django.db import models
 from django.conf import settings
 
 
-class Company(models.Model):
-    name = models.CharField('Название', max_length=30, blank=True)
-
-    class Meta:
-        verbose_name = 'Место работы'
-        verbose_name_plural = 'Места работы'
-
-    def __str__(self):
-        return self.name
-
-
 class Profile(models.Model):
     FEMALE = 0
     MALE = 1
@@ -22,9 +11,8 @@ class Profile(models.Model):
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     gender = models.SmallIntegerField('Пол', choices=GENDER_CHOICES, default=1, blank=True, null=True)
-    company = models.ForeignKey(verbose_name='Место работы', to=Company, on_delete=models.SET_NULL, blank=True,
-                                related_name='workers', null=True)
-    position = models.CharField('Должность', max_length=70, blank=True)
+    company = models.CharField('Компания', max_length=70, blank=True, null=True)
+    position = models.CharField('Должность', max_length=70, blank=True, null=True)
     hours = models.IntegerField('Оставшиеся часы', default=0, blank=True, null=True)
     avatar = models.ImageField('Аватар', null=True, blank=True, upload_to='avatars')
 

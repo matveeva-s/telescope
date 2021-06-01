@@ -32,4 +32,7 @@ class UserData(APIView):
             'lastName': user.last_name,
             'avatar': f'{SITE_URL}{MEDIA_URL}{user.profile.avatar}',
             'email': user.email,
+            'gender': user.profile.gender,
+            'company': user.profile.company,
+            'position': user.profile.position,
         })

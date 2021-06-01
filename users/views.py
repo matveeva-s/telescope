@@ -1,64 +1,30 @@
-from django.shortcuts import render, redirect
-from django.core.mail import send_mail, BadHeaderError
-from django.http import HttpResponse
-from django.contrib.auth.forms import PasswordResetForm
-from django.contrib.auth.models import User
-from django.template.loader import render_to_string
-from django.db.models.query_utils import Q
-from django.utils.http import urlsafe_base64_encode
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.encoding import force_bytes
+from rest_framework import viewsets, generics
+from rest_framework.response import Response
+
+from users.models import Profile
+from users.serializers import UserProfileSerializer
 
 
-def password_reset_request(request):
-    if request.method == "POST":
-        password_reset_form = PasswordResetForm(request.POST)
-        if password_reset_form.is_valid():
-            data = password_reset_form.cleaned_data['email']
-            associated_users = User.objects.filter(Q(email=data))
-            if associated_users.exists():
-                for user in associated_users:
-                    subject = "Password Reset Requested"
-                    email_template_name = "password_reset_email.txt"
-                    c = {
-                        "email": user.email,
-                        'domain': '127.0.0.1:8000',
-                        'site_name': 'Website',
-                        "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-                        "user": user,
-                        'token': default_token_generator.make_token(user),
-                        'protocol': 'http',
-                    }
-                    email = render_to_string(email_template_name, c)
-                    try:
-                        send_mail(subject, email, 'admin@example.com', [user.email], fail_silently=False)
-                    except BadHeaderError:
-                        return HttpResponse('Invalid header found.')
-                    return redirect("/password_reset/done/")
-    password_reset_form = PasswordResetForm()
-    return render(request=request, template_name="password_reset.html",
-                  context={"password_reset_form": password_reset_form})
+class ProfileView(generics.UpdateAPIView):
+    serializer_class = UserProfileSerializer
 
+    def get_queryset(self):
+        return Profile.objects.filter(user=self.request.user)
 
-def password_reset_for_new_user(email):
-    associated_users = User.objects.filter(Q(email=email))
-    if associated_users.exists():
-        for user in associated_users:
-            subject = "Password Reset Requested"
-            email_template_name = "password_reset_new_user.txt"
-            c = {
-                "email": user.email,
-                'domain': '127.0.0.1:8000',
-                'site_name': 'Website',
-                "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-                "user": user,
-                'token': default_token_generator.make_token(user),
-                'protocol': 'http',
-            }
-            email = render_to_string(email_template_name, c)
-            try:
-                print('email sending to', email)
-                send_mail(subject, email, 'admin@example.com', [user.email], fail_silently=False)
-            except BadHeaderError:
-                return HttpResponse('Invalid header found.')
-            return HttpResponse(status=200)
+    def update(self, request, *args, **kwargs):
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=self.request.data, context=self.get_serializer_context())
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        data = serializer.data
+        first_name = data.pop('first_name')
+        last_name = data.pop('last_name')
+        email = data.pop('email')
+        print(data)
+        print(serializer.data)
+        self.get_queryset().update(**data)
+        self.request.user.first_name = first_name
+        self.request.user.last_name = last_name
+        self.request.user.email = email
+        self.request.user.save()
+        return Response(data='Профиль успешно обновлен')

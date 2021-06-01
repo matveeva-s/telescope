@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from users.views import password_reset_for_new_user
+from users.email_senders import password_reset_for_new_user
 from users.models import Profile
 
 
