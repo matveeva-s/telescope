@@ -162,6 +162,9 @@ class BalanceRequest(models.Model):
                                   on_delete=models.CASCADE)
     minutes = models.IntegerField('Требуемое время в минутах')
     status = models.SmallIntegerField('Статус', choices=STATUS_CHOICES, default=CREATED)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True, blank=True, null=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name='Администратор', blank=True, null=True,
+                                    related_name='approved_requests', on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = 'Заявка на получение наблюдательного времени'

@@ -5,9 +5,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
-from tasks.models import Telescope, Task, Point
+from tasks.models import Telescope, Task, BalanceRequest
 from tasks.serializers import (
-    TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer, TrackingTaskSerializer, TleTaskSerializer
+    TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer,
+    TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer
 )
 
 
@@ -58,3 +59,11 @@ class TleTaskView(generics.CreateAPIView):
             return Response(serializer.errors, status=400)
         tracking_task = serializer.save()
         return Response(data={'msg': f'Задание №{tracking_task.id} успешно создано', 'status': 'ok'})
+
+
+class BalanceRequestView(generics.ListAPIView):
+    serializer_class = BalanceRequestSerializer
+
+    def get_queryset(self):
+        return BalanceRequest.objects.filter(user=self.request.user)
+

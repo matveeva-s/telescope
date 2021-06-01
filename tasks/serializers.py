@@ -1,5 +1,8 @@
+import datetime
+import locale
+
 from rest_framework import serializers
-from tasks.models import Telescope, Balance, Point, Task, TrackPoint, Frame, TrackingData, TLEData
+from tasks.models import Telescope, Point, Task, TrackPoint, Frame, TrackingData, TLEData, BalanceRequest
 from tasks.helpers import converting_degrees
 
 
@@ -194,3 +197,24 @@ class TleTaskSerializer(serializers.ModelSerializer):
         self.save_tle_data(instance, tle_data)
         self.save_frames(instance, frames)
         return instance
+
+
+class BalanceRequestSerializer(serializers.ModelSerializer):
+    telescope = serializers.CharField(source='telescope.name')
+    created = serializers.SerializerMethodField()
+    approved = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    def get_created(self, obj):
+        locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+        return obj.created_at.strftime('%d %b %Y, %H:%M')
+
+    def get_approved(self, obj):
+        return obj.approved_by.get_full_name() if obj.approved_by else ''
+
+    def get_status(self, obj):
+        return obj.get_status_display()
+
+    class Meta:
+        model = BalanceRequest
+        fields = ('telescope', 'minutes', 'status', 'created', 'approved')
