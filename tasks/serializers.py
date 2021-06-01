@@ -218,3 +218,19 @@ class BalanceRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = BalanceRequest
         fields = ('telescope', 'minutes', 'status', 'created', 'approved')
+
+
+class BalanceRequestCreateSerializer(serializers.ModelSerializer):
+    telescope = serializers.CharField(source='telescope.id')
+    minutes = serializers.IntegerField()
+
+    class Meta:
+        model = BalanceRequest
+        fields = ('telescope', 'minutes')
+
+    def create(self, validated_data):
+        telescope_id = validated_data.pop('telescope').get('id')
+        minutes = validated_data.pop('minutes')
+        user = self.context['request'].user
+        instance = BalanceRequest.objects.create(user=user, minutes=minutes, telescope_id=telescope_id)
+        return instance

@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from tasks.models import Telescope, Task, BalanceRequest
 from tasks.serializers import (
     TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer,
-    TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer
+    TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer, BalanceRequestCreateSerializer
 )
 
 
@@ -67,3 +67,14 @@ class BalanceRequestView(generics.ListAPIView):
     def get_queryset(self):
         return BalanceRequest.objects.filter(user=self.request.user)
 
+
+class BalanceRequestCreateView(generics.CreateAPIView):
+    serializer_class = BalanceRequestCreateSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=self.request.data, context=self.get_serializer_context())
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        request = serializer.save()
+        return Response(data={'msg': f'Заявка №{request.id} успешна создана', 'status': 'ok'})
