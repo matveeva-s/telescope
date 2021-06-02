@@ -75,4 +75,4 @@ class BalanceRequestCreateView(generics.CreateAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         request = serializer.save()
-        return Response(data={'msg': f'Заявка №{request.id} успешна создана', 'status': 'ok'})
+        return Response(data=f'Заявка №{request.id} успешна создана')

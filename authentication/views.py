@@ -5,8 +5,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status, permissions
 from rest_framework.response import Response
 
-from telescope.settings import SITE_URL, MEDIA_URL
-
 
 class LogoutAndBlacklistRefreshTokenForUserView(APIView):
     permission_classes = (permissions.AllowAny,)
@@ -30,7 +28,7 @@ class UserData(APIView):
         return JsonResponse({
             'firstName': user.first_name,
             'lastName': user.last_name,
-            'avatar': f'{SITE_URL}{MEDIA_URL}{user.profile.avatar}',
+            'avatar': user.profile.get_avatar_url(),
             'email': user.email,
             'gender': user.profile.gender,
             'company': user.profile.company,

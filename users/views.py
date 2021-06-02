@@ -1,3 +1,5 @@
+import base64
+from django.core.files.base import ContentFile
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
 
@@ -20,8 +22,13 @@ class ProfileView(generics.UpdateAPIView):
         first_name = data.pop('first_name')
         last_name = data.pop('last_name')
         email = data.pop('email')
-        print(data)
-        print(serializer.data)
+        image_data = data.pop('avatar')
+        if image_data != self.request.user.profile.get_avatar_url():
+            format, imgstr = image_data.split(';base64,')
+            ext = format.split('/')[-1]
+            avatar_data = ContentFile(base64.b64decode(imgstr))
+            file_name = f"'{self.request.user.username}." + ext
+            self.request.user.profile.avatar.save(file_name, avatar_data, save=True)
         self.get_queryset().update(**data)
         self.request.user.first_name = first_name
         self.request.user.last_name = last_name

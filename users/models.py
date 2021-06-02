@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 
+from telescope.settings import SITE_URL, MEDIA_URL
+
 
 class Profile(models.Model):
     FEMALE = 0
@@ -30,5 +32,8 @@ class Profile(models.Model):
         if self.user.first_name and self.user.last_name:
             return "%s %s" % (self.user.first_name, self.user.last_name)
         return None
+
+    def get_avatar_url(self):
+        return f'{SITE_URL}{MEDIA_URL}{self.avatar}'
 
 
