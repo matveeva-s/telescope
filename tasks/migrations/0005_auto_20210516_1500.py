@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('tasks', '0005_telescope_avatar'),
+        ('tasks', '0004_telescope_avatar'),
     ]
 
     operations = [
