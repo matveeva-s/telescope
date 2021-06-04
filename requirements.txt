@@ -12,11 +12,10 @@ djangorestframework-simplejwt==4.4.0
 ipython==7.16.1
 ipython-genutils==0.2.0
 jedi==0.17.2
-mysqlclient==2.0.1
+mysqlclient==2.0.3
 parso==0.7.1
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==8.1.0
 prompt-toolkit==3.0.8
 ptyprocess==0.6.0
 Pygments==2.7.2
