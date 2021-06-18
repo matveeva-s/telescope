@@ -1,9 +1,8 @@
-import datetime
 import locale
 
 from rest_framework import serializers
 from tasks.models import Telescope, Point, Task, TrackPoint, Frame, TrackingData, TLEData, BalanceRequest
-from tasks.helpers import converting_degrees
+from tasks.helpers import converting_degrees, is_float, is_int
 
 
 class TelescopeSerializer(serializers.ModelSerializer):
@@ -84,15 +83,38 @@ class FrameSerializer(serializers.ModelSerializer):
 class PointTaskSerializer(serializers.ModelSerializer):
     telescope = serializers.CharField(source='telescope.id')
     points = PointSerializer(many=True)
+    timing = serializers.FloatField()
 
     class Meta:
         model = Task
-        fields = ('telescope', 'points')
+        fields = ('telescope', 'points', 'timing')
 
     def validate_points(self, points):
         if not points:
             raise serializers.ValidationError('В задании должна быть выбрана хотя бы одна точка для наблюдения')
-        # todo: check time collisions with existed points
+        for point in points:
+            satellite_id = point.get('satellite_id')
+            mag = point.get('mag')
+            alpha = point.get('alpha')
+            beta = point.get('beta')
+            exposure = point.get('exposure')
+            cs_type = point.get('cs_type')
+            dt = point.get('dt')
+            errors = []
+            if not is_int(satellite_id) or satellite_id < 0:
+                errors.append('введен некорректный ID спутника')
+            if not is_int(mag) or mag < 0:
+                errors.append('введена некорректная звездная величина')
+            if not is_int(exposure) or exposure < 0:
+                errors.append('введена некорректная выдержка')
+            if cs_type not in [Point.EARTH_SYSTEM, Point.STARS_SYSTEM]:
+                errors.append('неправильно указана система координат')
+            if not is_float(alpha) or alpha < 0 or alpha > 360:
+                errors.append('введен некорректный азимут')
+            if not is_float(beta) or beta < 0 or beta > 90:
+                errors.append('введена некорректная высота')
+            if errors:
+                raise serializers.ValidationError(f'Найдены следующие ошибки: {", ".join(errors)}')
 
     def save_points(self, instance, points):
         nested_serializer = PointSerializer(data=points, many=True)
@@ -118,10 +140,47 @@ class TrackingTaskSerializer(serializers.ModelSerializer):
     tracking_data = TrackingDataSerializer()
     track_points = TrackPointSerializer(many=True)
     frames = FrameSerializer(many=True)
+    timing = serializers.FloatField()
 
     class Meta:
         model = Task
-        fields = ('telescope', 'tracking_data', 'track_points', 'frames')
+        fields = ('telescope', 'tracking_data', 'track_points', 'frames', 'timing')
+
+    def validate_tracking_task(self, tracking_data):
+        satellite_id = tracking_data.get('satellite_id')
+        mag = tracking_data.get('mag')
+        step_sec = tracking_data.get('step_sec')
+        errors = []
+        if not is_int(satellite_id) or satellite_id < 0:
+            errors.append('введен некорректный ID спутника')
+        if not is_int(mag) or mag < 0:
+            errors.append('введена некорректная звездная величина')
+        if not is_int(step_sec) or step_sec < 0:
+            errors.append('введен некорректный временной шаг')
+        if errors:
+            raise serializers.ValidationError(f'Найдены следующие ошибки: {", ".join(errors)}')
+
+    def validate_track(self, track_points):
+        if len(track_points) < 2:
+            raise serializers.ValidationError('В задании должны быть выбраны хотя бы две точки для перемещения')
+        for point in track_points:
+            alpha = point.get('alpha')
+            beta = point.get('beta')
+            errors = []
+            if not is_float(alpha) or alpha < 0 or alpha > 360:
+                errors.append('введен некорректный азимут')
+            if not is_float(beta) or beta < 0 or beta > 90:
+                errors.append('введена некорректная высота')
+            if errors:
+                raise serializers.ValidationError(f'Найдены следующие ошибки: {", ".join(errors)}')
+
+    def validate_frames(self, frames):
+        if not frames:
+            raise serializers.ValidationError('В задании должны быть выбран хотя бы один момент для съемки')
+        for frame in frames:
+            exposure = frame.get('exposure')
+            if not is_int(exposure) or exposure < 0:
+                raise serializers.ValidationError('Введена некорректная выдержка')
 
     def save_tracking_data(self, instance, tracking_data):
         nested_serializer = TrackingDataSerializer(data=tracking_data)
@@ -155,6 +214,9 @@ class TrackingTaskSerializer(serializers.ModelSerializer):
         track = self.context['request'].data.get('track_points')
         frames = self.context['request'].data.get('frames')
         user = self.context['request'].user
+        self.validate_tracking_task(tracking_data)
+        self.validate_track(track)
+        self.validate_frames(frames)
         instance = Task.objects.create(author=user, task_type=Task.TRACKING_MODE, telescope_id=telescope_id)
         self.save_tracking_data(instance, tracking_data)
         self.save_track(instance, track)
@@ -166,10 +228,11 @@ class TleTaskSerializer(serializers.ModelSerializer):
     telescope = serializers.CharField(source='telescope.id')
     tle_data = TleDataSerializer()
     frames = FrameSerializer(many=True)
+    timing = serializers.FloatField()
 
     class Meta:
         model = Task
-        fields = ('telescope', 'tle_data', 'frames')
+        fields = ('telescope', 'tle_data', 'frames', 'timing')
 
     def save_tle_data(self, instance, tle_data):
         nested_serializer = TleDataSerializer(data=tle_data)
@@ -188,11 +251,22 @@ class TleTaskSerializer(serializers.ModelSerializer):
             frame.save()
         return frames_list
 
+    def validate_frames(self, frames):
+        if not frames:
+            raise serializers.ValidationError('В задании должны быть выбран хотя бы один момент для съемки')
+        for frame in frames:
+            exposure = frame.get('exposure')
+            if not is_int(exposure) or exposure < 0:
+                raise serializers.ValidationError('Введена некорректная выдержка')
+
     def create(self, validated_data):
         telescope_id = validated_data.pop('telescope').get('id')
         tle_data = self.context['request'].data.get('tle_data')
         frames = self.context['request'].data.get('frames')
         user = self.context['request'].user
+        self.validate_frames(frames)
+        if not is_int(tle_data.get('satellite_id')) or tle_data.get('satellite_id') < 0:
+            raise serializers.ValidationError('Введен некорректный ID спутника')
         instance = Task.objects.create(author=user, task_type=Task.TLE_MODE, telescope_id=telescope_id)
         self.save_tle_data(instance, tle_data)
         self.save_frames(instance, frames)
