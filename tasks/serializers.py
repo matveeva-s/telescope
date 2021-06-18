@@ -83,11 +83,13 @@ class FrameSerializer(serializers.ModelSerializer):
 class PointTaskSerializer(serializers.ModelSerializer):
     telescope = serializers.CharField(source='telescope.id')
     points = PointSerializer(many=True)
-    timing = serializers.FloatField()
+    duration = serializers.FloatField()
+    min_dt = serializers.DateTimeField()
+    max_dt = serializers.DateTimeField()
 
     class Meta:
         model = Task
-        fields = ('telescope', 'points', 'timing')
+        fields = ('telescope', 'points', 'duration', 'min_dt', 'max_dt')
 
     def validate_points(self, points):
         if not points:
@@ -128,10 +130,15 @@ class PointTaskSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         telescope_id = validated_data.pop('telescope').get('id')
         points = self.context['request'].data.get('points')
+        min_dt = self.context['request'].data.get('min_dt')
+        max_dt = self.context['request'].data.get('max_dt')
         user = self.context['request'].user
         self.validate_points(points)
         instance = Task.objects.create(author=user, task_type=Task.POINTS_MODE, telescope_id=telescope_id)
+        instance.start_dt = min_dt
+        instance.end_dt = max_dt
         self.save_points(instance, points)
+        instance.save()
         return instance
 
 
@@ -140,11 +147,13 @@ class TrackingTaskSerializer(serializers.ModelSerializer):
     tracking_data = TrackingDataSerializer()
     track_points = TrackPointSerializer(many=True)
     frames = FrameSerializer(many=True)
-    timing = serializers.FloatField()
+    duration = serializers.FloatField()
+    min_dt = serializers.DateTimeField()
+    max_dt = serializers.DateTimeField()
 
     class Meta:
         model = Task
-        fields = ('telescope', 'tracking_data', 'track_points', 'frames', 'timing')
+        fields = ('telescope', 'tracking_data', 'track_points', 'frames', 'duration', 'min_dt', 'max_dt')
 
     def validate_tracking_task(self, tracking_data):
         satellite_id = tracking_data.get('satellite_id')
@@ -213,14 +222,19 @@ class TrackingTaskSerializer(serializers.ModelSerializer):
         tracking_data = self.context['request'].data.get('tracking_data')
         track = self.context['request'].data.get('track_points')
         frames = self.context['request'].data.get('frames')
+        min_dt = self.context['request'].data.get('min_dt')
+        max_dt = self.context['request'].data.get('max_dt')
         user = self.context['request'].user
         self.validate_tracking_task(tracking_data)
         self.validate_track(track)
         self.validate_frames(frames)
         instance = Task.objects.create(author=user, task_type=Task.TRACKING_MODE, telescope_id=telescope_id)
+        instance.start_dt = min_dt
+        instance.end_dt = max_dt
         self.save_tracking_data(instance, tracking_data)
         self.save_track(instance, track)
         self.save_frames(instance, frames)
+        instance.save()
         return instance
 
 
@@ -228,11 +242,13 @@ class TleTaskSerializer(serializers.ModelSerializer):
     telescope = serializers.CharField(source='telescope.id')
     tle_data = TleDataSerializer()
     frames = FrameSerializer(many=True)
-    timing = serializers.FloatField()
+    duration = serializers.FloatField()
+    min_dt = serializers.DateTimeField()
+    max_dt = serializers.DateTimeField()
 
     class Meta:
         model = Task
-        fields = ('telescope', 'tle_data', 'frames', 'timing')
+        fields = ('telescope', 'tle_data', 'frames', 'duration', 'min_dt', 'max_dt')
 
     def save_tle_data(self, instance, tle_data):
         nested_serializer = TleDataSerializer(data=tle_data)
@@ -263,6 +279,8 @@ class TleTaskSerializer(serializers.ModelSerializer):
         telescope_id = validated_data.pop('telescope').get('id')
         tle_data = self.context['request'].data.get('tle_data')
         frames = self.context['request'].data.get('frames')
+        min_dt = self.context['request'].data.get('min_dt')
+        max_dt = self.context['request'].data.get('max_dt')
         user = self.context['request'].user
         self.validate_frames(frames)
         if not is_int(tle_data.get('satellite_id')) or tle_data.get('satellite_id') < 0:
@@ -270,6 +288,9 @@ class TleTaskSerializer(serializers.ModelSerializer):
         instance = Task.objects.create(author=user, task_type=Task.TLE_MODE, telescope_id=telescope_id)
         self.save_tle_data(instance, tle_data)
         self.save_frames(instance, frames)
+        instance.start_dt = min_dt
+        instance.end_dt = max_dt
+        instance.save()
         return instance
 
 

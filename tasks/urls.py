@@ -10,4 +10,5 @@ urlpatterns = [
     re_path(r'^point_task/$', views.PointTaskView.as_view(), name='point_task'),
     re_path(r'^tracking_task/$', views.TrackingTaskView.as_view(), name='tracking_task'),
     re_path(r'^tle_task/$', views.TleTaskView.as_view(), name='tle_task'),
+    re_path(r'^(?P<telescope_id>\d+)/schedule/$', views.get_telescope_schedule, name='telescope_schedule'),
 ]

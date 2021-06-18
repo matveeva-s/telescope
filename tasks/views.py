@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
+import locale
 import pytz
 
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -11,6 +14,10 @@ from tasks.serializers import (
     TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer,
     TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer, BalanceRequestCreateSerializer
 )
+from tasks.helpers import telescope_collision_task_message
+
+
+DT_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
 class TelescopeView(generics.ListAPIView):
@@ -27,39 +34,22 @@ class PointTaskView(generics.CreateAPIView):
     queryset = Task.objects.filter(task_type=Task.POINTS_MODE)
     serializer_class = PointTaskSerializer
 
-    def is_collisions_with_existed_points(self, telescope_id, points):
-        actual_tasks_ids = Task.objects.filter(
-            telescope_id=telescope_id, task_type=Task.POINTS_MODE, status__in=[Task.CREATED, Task.RECEIVED]
-        ).values_list('id', flat=True)
-        existed_points = Point.objects.filter(task_id__in=actual_tasks_ids)
-        for existed_point in existed_points:
-            for point in points:
-                start_dt = datetime.strptime(point.get('dt'), "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
-                end_dt = start_dt + timedelta(seconds=point.get('exposure'))
-                existed_start_dt = existed_point.dt
-                existed_end_dt = existed_point.dt + timedelta(seconds=existed_point.exposure)
-                if start_dt > existed_start_dt and start_dt < existed_end_dt or \
-                        end_dt > existed_start_dt and end_dt < existed_end_dt:
-                    local_start_dt = existed_start_dt + timedelta(hours=3)
-                    local_end_dt = existed_end_dt + timedelta(hours=3)
-                    return f'Задание не может быть сохранено, так как есть другая точка для съемки в ' \
-                        f'{local_start_dt.strftime("%H:%M:%S")}, продлящаяся до {local_end_dt.strftime("%H:%M:%S")}'
-        return ''
-
     def create(self, request, *args, **kwargs):
         serializer_class = self.get_serializer_class()
         serializer = serializer_class(data=self.request.data, context=self.get_serializer_context())
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         telescope_id = self.request.data.get('telescope')
-        collisions = self.is_collisions_with_existed_points(telescope_id, self.request.data.get('points'))
-        if collisions:
-            return Response(data={'msg': collisions, 'status': 'error'}, status=400)
+        start_dt = datetime.strptime(self.request.data.get('min_dt'), DT_FORMAT).replace(tzinfo=pytz.UTC)
+        end_dt = datetime.strptime(self.request.data.get('max_dt'), DT_FORMAT).replace(tzinfo=pytz.UTC)
+        collisions_message = telescope_collision_task_message(telescope_id, start_dt, end_dt)
+        if collisions_message:
+            return Response(data={'msg': collisions_message}, status=400)
         point_task = serializer.save()
-        timing = self.request.data.get('timing')
+        duration = int(self.request.data.get('duration'))
         try:
             balance = Balance.objects.get(user=self.request.user, telescope_id=telescope_id)
-            balance.minutes = balance.minutes - timing
+            balance.minutes = balance.minutes - duration
             balance.save()
             return Response(data={'msg': f'Задание №{point_task.id} успешно создано, на этом телескопе осталось {balance.minutes} минут для наблюдений', 'status': 'ok'})
         except Balance.DoesNotExist:
@@ -77,10 +67,15 @@ class TrackingTaskView(generics.CreateAPIView):
             return Response(serializer.errors, status=400)
         tracking_task = serializer.save()
         telescope_id = self.request.data.get('telescope')
-        timing = self.request.data.get('timing')
+        start_dt = datetime.strptime(self.request.data.get('min_dt'), DT_FORMAT).replace(tzinfo=pytz.UTC)
+        end_dt = datetime.strptime(self.request.data.get('max_dt'), DT_FORMAT).replace(tzinfo=pytz.UTC)
+        collisions_message = telescope_collision_task_message(telescope_id, start_dt, end_dt)
+        if collisions_message:
+            return Response(data={'msg': collisions_message}, status=400)
+        duration = int(self.request.data.get('duration'))
         try:
             balance = Balance.objects.get(user=self.request.user, telescope_id=telescope_id)
-            balance.minutes = balance.minutes - timing
+            balance.minutes = balance.minutes - duration
             balance.save()
             return Response(data={
                 'msg': f'Задание №{tracking_task.id} успешно создано, на этом телескопе осталось {balance.minutes} минут для наблюдений',
@@ -100,10 +95,15 @@ class TleTaskView(generics.CreateAPIView):
             return Response(serializer.errors, status=400)
         tle_task = serializer.save()
         telescope_id = self.request.data.get('telescope')
-        timing = self.request.data.get('timing')
+        start_dt = datetime.strptime(self.request.data.get('min_dt'), DT_FORMAT)
+        end_dt = datetime.strptime(self.request.data.get('max_dt'), DT_FORMAT)
+        collisions_message = telescope_collision_task_message(telescope_id, start_dt, end_dt)
+        if collisions_message:
+            return Response(data={'msg': collisions_message}, status=400)
+        duration = int(self.request.data.get('duration'))
         try:
             balance = Balance.objects.get(user=self.request.user, telescope_id=telescope_id)
-            balance.minutes = balance.minutes - timing
+            balance.minutes = balance.minutes - duration
             balance.save()
             return Response(data={
                 'msg': f'Задание №{tle_task.id} успешно создано, на этом телескопе осталось {balance.minutes} минут для наблюдений',
@@ -131,3 +131,17 @@ class BalanceRequestCreateView(generics.CreateAPIView):
             return Response(serializer.errors, status=400)
         request = serializer.save()
         return Response(data=f'Заявка №{request.id} успешна создана')
+
+
+def get_telescope_schedule(request, telescope_id):
+    locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+    actual_tasks = Task.objects.filter(status__in=[Task.CREATED, Task.RECEIVED], telescope_id=telescope_id)
+    slots = []
+    for task in actual_tasks:
+        slot = f'{task.start_dt.strftime("%d %b %Y, %H:%M:%S")} - {task.end_dt.strftime("%d %b %Y, %H:%M:%S")}'
+        slots.append(slot)
+    return JsonResponse({'schedule': slots})
+
+
+def get_telescope_plan(request, telescope_id):
+    telescope = get_object_or_404(Telescope, id=telescope_id)
