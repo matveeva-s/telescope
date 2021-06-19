@@ -1,20 +1,21 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import locale
 import pytz
+import julian
 
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
-from rest_framework import viewsets, generics
+from rest_framework import generics
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
-from tasks.models import Telescope, Task, BalanceRequest, Balance, Point
+from tasks.models import Telescope, Task, BalanceRequest, Balance
 from tasks.serializers import (
     TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer,
-    TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer, BalanceRequestCreateSerializer
+    TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer,
+    BalanceRequestCreateSerializer, TaskSerializer,
 )
-from tasks.helpers import telescope_collision_task_message
+from tasks.helpers import telescope_collision_task_message, get_points_json, get_track_json, get_frames_json
 
 
 DT_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -95,8 +96,8 @@ class TleTaskView(generics.CreateAPIView):
             return Response(serializer.errors, status=400)
         tle_task = serializer.save()
         telescope_id = self.request.data.get('telescope')
-        start_dt = datetime.strptime(self.request.data.get('min_dt'), DT_FORMAT)
-        end_dt = datetime.strptime(self.request.data.get('max_dt'), DT_FORMAT)
+        start_dt = datetime.strptime(self.request.data.get('min_dt'), DT_FORMAT).replace(tzinfo=pytz.UTC)
+        end_dt = datetime.strptime(self.request.data.get('max_dt'), DT_FORMAT).replace(tzinfo=pytz.UTC)
         collisions_message = telescope_collision_task_message(telescope_id, start_dt, end_dt)
         if collisions_message:
             return Response(data={'msg': collisions_message}, status=400)
@@ -143,5 +144,50 @@ def get_telescope_schedule(request, telescope_id):
     return JsonResponse({'schedule': slots})
 
 
-def get_telescope_plan(request, telescope_id):
+class UserTasks(generics.ListAPIView):
+    serializer_class = TaskSerializer
+
+    def get_queryset(self):
+        return Task.objects.filter(author=self.request.user).order_by('-created_at')
+
+
+def get_telescope_plan(request, telescope_id, task_id):
     telescope = get_object_or_404(Telescope, id=telescope_id)
+    task = get_object_or_404(Task, id=task_id)
+    telescope_data = {
+        'id': telescope_id,
+        'name': telescope.name,
+        'site_lon': telescope.longitude,
+        'site_lat': telescope.latitude,
+        'site_height': 0.31,
+        'FOV': 5.8,
+    }
+    data = {
+        'user': task.author.get_full_name(),
+        'key': task.author_id,
+        'jd_start': julian.to_jd(task.start_dt, fmt='jd'),
+        'jd_end': julian.to_jd(task.end_dt, fmt='jd'),
+        'telescope': telescope_data,
+    }
+    if task.task_type == Task.POINTS_MODE:
+        data['points'] = get_points_json(task.points.all())
+    if task.task_type == Task.TRACKING_MODE:
+        tracking_data = {
+            'id': task.tracking_data.first().satellite_id,
+            'mag': task.tracking_data.first().mag,
+            'step_sec': task.tracking_data.first().step_sec,
+            'count': task.tracking_data.first().count,
+            'track': get_track_json(task.track_points.all()),
+            'frames': get_frames_json(task.frames.all()),
+        }
+        data['tracking'] = tracking_data
+    if task.task_type == Task.TLE_MODE:
+        tle_data = {
+            'id': task.TLE_data.first().satellite_id,
+            'line1': task.TLE_data.first().line1,
+            'line2': task.TLE_data.first().line2,
+            'frames': get_frames_json(task.frames.all()),
+        }
+        data['TLE'] = tle_data
+    return JsonResponse({'plan': data})
+

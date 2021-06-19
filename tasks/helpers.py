@@ -1,4 +1,5 @@
 from _datetime import datetime, timedelta
+import julian
 from tasks.models import Task
 
 
@@ -21,6 +22,42 @@ def converting_degrees(value):
     seconds = int(abs(minutes - int(minutes)) * 60)
     minutes = int(minutes)
     return degrees, minutes, seconds
+
+
+def get_points_json(points):
+    data = []
+    for point in points:
+        data.append({
+            'id': point.satellite_id,
+            'mag': point.mag,
+            'jd': julian.to_jd(point.dt, fmt='jd'),
+            'alpha': point.alpha,
+            'beta': point.beta,
+            'exp': point.exposure,
+            'type': point.cs_type,
+        })
+    return data
+
+
+def get_track_json(track_list):
+    data = []
+    for track in track_list:
+        data.append({
+            'jd': julian.to_jd(track.dt, fmt='jd'),
+            'alpha': track.alpha,
+            'beta': track.beta,
+        })
+    return data
+
+
+def get_frames_json(frames):
+    data = []
+    for frame in frames:
+        data.append({
+            'jd': julian.to_jd(frame.dt, fmt='jd'),
+            'exp': frame.exposure,
+        })
+    return data
 
 
 def is_float(value):

@@ -4,6 +4,7 @@ import tasks.views as views
 
 urlpatterns = [
     re_path(r'^telescopes/$', views.TelescopeView.as_view(), name='telescope_list'),
+    re_path(r'^get_tasks/$', views.UserTasks.as_view(), name='user_tasks'),
     re_path(r'^requests/$', views.BalanceRequestView.as_view(), name='requests'),
     re_path(r'^save_request/$', views.BalanceRequestCreateView.as_view(), name='save_request'),
     re_path(r'^telescopes_with_balances/$', views.TelescopeChoosingView.as_view(), name='telescope_with_balances'),
@@ -11,4 +12,5 @@ urlpatterns = [
     re_path(r'^tracking_task/$', views.TrackingTaskView.as_view(), name='tracking_task'),
     re_path(r'^tle_task/$', views.TleTaskView.as_view(), name='tle_task'),
     re_path(r'^(?P<telescope_id>\d+)/schedule/$', views.get_telescope_schedule, name='telescope_schedule'),
+    re_path(r'^(?P<telescope_id>\d+)/get_plan/(?P<task_id>\d+)/$', views.get_telescope_plan, name='get_telescope_plan'),
 ]

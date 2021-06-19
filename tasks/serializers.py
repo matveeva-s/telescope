@@ -329,3 +329,36 @@ class BalanceRequestCreateSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         instance = BalanceRequest.objects.create(user=user, minutes=minutes, telescope_id=telescope_id)
         return instance
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    telescope = serializers.CharField(source='telescope.name')
+    status = serializers.SerializerMethodField()
+    created = serializers.SerializerMethodField()
+    task_type = serializers.SerializerMethodField()
+    start_dt = serializers.SerializerMethodField()
+    end_dt = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField()
+
+    def get_created(self, obj):
+        locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+        return obj.created_at.strftime('%d %b %Y, %H:%M')
+
+    def get_start_dt(self, obj):
+        return obj.start_dt.strftime('%d %b, %H:%M:%S')
+
+    def get_end_dt(self, obj):
+        return obj.end_dt.strftime('%d %b, %H:%M:%S')
+
+    def get_status(self, obj):
+        return obj.get_status_display()
+
+    def get_task_type(self, obj):
+        return obj.get_task_type_display()
+
+    def get_url(self, obj):
+        return 'url'
+
+    class Meta:
+        model = Task
+        fields = ('telescope', 'status', 'created', 'task_type', 'start_dt', 'end_dt', 'url')
