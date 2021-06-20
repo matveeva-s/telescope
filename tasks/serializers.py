@@ -1,7 +1,8 @@
 import locale
 
 from rest_framework import serializers
-from tasks.models import Telescope, Point, Task, TrackPoint, Frame, TrackingData, TLEData, BalanceRequest
+from telescope.settings import SITE_URL, MEDIA_URL
+from tasks.models import Telescope, Point, Task, TrackPoint, Frame, TrackingData, TLEData, BalanceRequest, TaskResult
 from tasks.helpers import converting_degrees, is_float, is_int
 
 
@@ -357,8 +358,82 @@ class TaskSerializer(serializers.ModelSerializer):
         return obj.get_task_type_display()
 
     def get_url(self, obj):
-        return 'url'
+        if obj.status == Task.READY:
+            return f'{obj.id}/result/'
 
     class Meta:
         model = Task
         fields = ('telescope', 'status', 'created', 'task_type', 'start_dt', 'end_dt', 'url')
+
+
+class TaskResultSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    task_type = serializers.SerializerMethodField()
+    created = serializers.SerializerMethodField()
+    start_dt = serializers.SerializerMethodField()
+    end_dt = serializers.SerializerMethodField()
+    results = serializers.SerializerMethodField()
+    type_code = serializers.SerializerMethodField()
+    other_data = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return f'Результаты наблюдения №{obj.id}'
+
+    def get_task_type(self, obj):
+        return obj.get_task_type_display()
+
+    def get_created(self, obj):
+        locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+        return obj.created_at.strftime('%d %b %Y, %H:%M')
+
+    def get_start_dt(self, obj):
+        return obj.start_dt.strftime('%d %b, %H:%M:%S')
+
+    def get_end_dt(self, obj):
+        return obj.end_dt.strftime('%d %b, %H:%M:%S')
+
+    def get_type_code(self, obj):
+        if obj.task_type == Task.POINTS_MODE:
+            return 'point'
+        if obj.task_type == Task.TRACKING_MODE:
+            return 'track'
+        if obj.task_type == Task.TLE_MODE:
+            return 'tle'
+
+    def get_other_data(self, obj):
+        if obj.task_type == Task.TRACKING_MODE:
+            return {
+                'satellite': obj.tracking_data.first().id,
+                'mag': obj.tracking_data.first().mag,
+            }
+        if obj.task_type == Task.TLE_MODE:
+            return {
+                'satellite': obj.TLE_data.first().id,
+                'line1': obj.TLE_data.first().line1,
+                'line2': obj.TLE_data.first().line2,
+            }
+
+    def get_results(self, obj):
+        results = []
+        for result in obj.results.all():
+            if obj.task_type == Task.POINTS_MODE:
+                results.append({
+                    'satellite': result.point.satellite_id,
+                    'mag': result.point.mag,
+                    'dt': result.point.dt.strftime('%d %b %Y, %H:%M:%S'),
+                    'alpha': result.point.alpha,
+                    'beta': result.point.beta,
+                    'exposure': result.point.exposure,
+                    'url': f'{SITE_URL}{result.image.url}',
+                })
+            else:
+                results.append({
+                    'exposure': result.frame.exposure,
+                    'dt': result.frame.dt.strftime('%d %b %Y, %H:%M:%S'),
+                    'url': f'{SITE_URL}{result.image.url}',
+                })
+        return results
+
+    class Meta:
+        model = Task
+        fields = ('name', 'task_type', 'created', 'start_dt', 'end_dt', 'results', 'type_code', 'other_data')

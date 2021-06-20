@@ -13,7 +13,7 @@ from tasks.models import Telescope, Task, BalanceRequest, Balance
 from tasks.serializers import (
     TelescopeSerializer, TelescopeBalanceSerializer, PointTaskSerializer,
     TrackingTaskSerializer, TleTaskSerializer, BalanceRequestSerializer,
-    BalanceRequestCreateSerializer, TaskSerializer,
+    BalanceRequestCreateSerializer, TaskSerializer, TaskResultSerializer
 )
 from tasks.helpers import telescope_collision_task_message, get_points_json, get_track_json, get_frames_json
 
@@ -149,6 +149,11 @@ class UserTasks(generics.ListAPIView):
 
     def get_queryset(self):
         return Task.objects.filter(author=self.request.user).order_by('-created_at')
+
+
+class TaskResult(generics.RetrieveAPIView):
+    serializer_class = TaskResultSerializer
+    queryset = Task.objects.all()
 
 
 def get_telescope_plan(request, telescope_id, task_id):

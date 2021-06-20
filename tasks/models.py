@@ -38,8 +38,8 @@ class Task(models.Model):
     FAILED = 4
     STATUS_CHOICES = (
         (CREATED, 'Создано'),
-        (RECEIVED, 'Получена телескопом'),
-        (READY, 'Выполнена'),
+        (RECEIVED, 'Получено телескопом'),
+        (READY, 'Выполнено'),
         (FAILED, 'Не удалось выполнить'),
     )
     POINTS_MODE = 1
@@ -172,3 +172,17 @@ class BalanceRequest(models.Model):
 
     def __str__(self):
         return f'Заявка {self.id} (от {self.user}, на {self.telescope})'
+
+
+class TaskResult(models.Model):
+    task = models.ForeignKey(to=Task, verbose_name='Задание', related_name='results', null=True, blank=True, on_delete=models.CASCADE)
+    image = models.ImageField('Снимок', null=True, blank=True, upload_to='results')
+    point = models.ForeignKey(to=Point, verbose_name='Точка', related_name='result', null=True, blank=True, on_delete=models.CASCADE)
+    frame = models.ForeignKey(to=Frame, verbose_name='Фрейм', related_name='result', null=True, blank=True, on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = 'Результаты наблюдений'
+        verbose_name_plural = 'Результаты наблюдений'
+
+    def __str__(self):
+        return f'Снимок {self.id} (задание {self.task.id}, на фрейм/точку{self.point_id or self.frame_id })'
