@@ -359,7 +359,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
     def get_url(self, obj):
         if obj.status == Task.READY:
-            return f'{obj.id}/result/'
+            return f'{obj.id}/results/'
 
     class Meta:
         model = Task
